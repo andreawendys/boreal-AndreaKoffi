@@ -3,3 +3,4 @@ warehouse/
 __pycache__/
 essais.py
 data/
+.vscode/
