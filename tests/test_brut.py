@@ -17,6 +17,7 @@ DB = ROOT / "warehouse" / "boreal.duckdb"
 
 sys.path.insert(0, str(ROOT / "pipeline"))
 import ingest  # type: ignore  # noqa: E402
+from journal_tests import enregistrer  # type: ignore  # noqa: E402
 
 TABLES = ["raw.clients", "raw.contrats", "raw.audits", "raw.sinistres", "raw.reglements"]
 FICHIERS_REGLEMENTS = sorted((SRC / "reglements").glob("reglements_*.csv"))
@@ -120,13 +121,18 @@ def test_rejeu_sans_doublon():
 
 if __name__ == "__main__":
     echecs = 0
+    resultats = []
     for nom, fonction in list(globals().items()):
         if nom.startswith("test_") and callable(fonction):
+            description = (fonction.__doc__ or nom).strip().split("\n")[0]
             try:
                 fonction()
                 print(f"PASS  {nom}")
+                resultats.append((nom, description, "PASS", ""))
             except AssertionError as e:
                 echecs += 1
                 print(f"FAIL  {nom} : {e}")
+                resultats.append((nom, description, "FAIL", str(e)[:300]))
+    enregistrer("brut", resultats)
     print(f"\n{'ECHEC' if echecs else 'OK'} : {echecs} test(s) en échec")
     sys.exit(1 if echecs else 0)

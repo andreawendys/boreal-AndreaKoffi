@@ -13,6 +13,9 @@ import duckdb
 ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / "warehouse" / "boreal.duckdb"
 
+sys.path.insert(0, str(ROOT / "pipeline"))
+from journal_tests import enregistrer  # type: ignore  # noqa: E402
+
 def un(con, requete):
     """Renvoie la première valeur d'une requête."""
     return con.execute(requete).fetchone()[0]
@@ -92,13 +95,18 @@ TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
 def main():
     con = duckdb.connect(str(DB), read_only=True)
     echecs = 0
+    resultats = []
     try:
         for test in TESTS:
             anomalies = test(con)
             echecs += anomalies != 0
             print(f"{'PASS' if anomalies == 0 else 'FAIL'}  {test.__name__}" + ("" if anomalies == 0 else f"  ({anomalies})"))
+            description = (test.__doc__ or test.__name__.replace("test_", "").replace("_", " ")).strip().split("\n")[0]
+            resultats.append((test.__name__, description, "PASS" if anomalies == 0 else "FAIL",
+                              "" if anomalies == 0 else f"{anomalies} anomalie(s)"))
     finally:
         con.close()
+    enregistrer("coeur", resultats)
     print(f"\n{'OK' if echecs == 0 else 'ECHEC'} : {echecs} test(s) en échec sur {len(TESTS)}")
     sys.exit(1 if echecs else 0)
 
