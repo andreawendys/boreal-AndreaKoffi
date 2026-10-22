@@ -1,5 +1,6 @@
--- Livrable 3, indicateurs techniques : un tableau par axe d'analyse, toutes années confondues.
--- Chaque indicateur est calculé en sommant la base puis en divisant (jamais en moyennant des ratios).
+-- Livrable 3, indicateurs techniques :(fréquence, coût moyen, ratio sinistres/primes...), un tableau par axe d'analyse, toutes années confondues.
+-- Calculés à partir de la base technique, en additionnant puis en divisant  (jamais en moyennant des ratios).
+
 create or replace table marts.indicateurs as
 with axes as (
     select 'Portefeuille' as axe, 'Ensemble' as modalite, * exclude (annee, produit, zone_risque, formule, canal, tranche_age) from marts.base_technique

@@ -100,8 +100,9 @@ def zone_immature(fig, dernier):
 
 
 def mise_en_forme(fig, titre, hauteur=380):
-    fig.update_layout(title=dict(text=titre, font=dict(size=15, color=MARINE)), template="plotly_white", height=hauteur,
-                      margin=dict(l=10, r=10, t=60, b=10), legend=dict(orientation="h", y=-0.18))
+    fig.update_layout(title=dict(text=titre.replace(" Action :", "<br>Action :"), font=dict(size=15, color=MARINE)),
+                      template="plotly_white", height=hauteur,
+                      margin=dict(l=10, r=10, t=85, b=10), legend=dict(orientation="h", y=-0.18))
     return fig
 
 
@@ -240,7 +241,7 @@ if page == "Portefeuille":
 
     if len(gm) > 1:
         haut, bas = gm.index[-1], gm.index[0]
-        action = ("revoir sa tarification ou sa sélection des risques" if gm.ratio.iloc[0] > SEUIL
+        action = ("vérifier si un sinistre exceptionnel explique l'écart avant de revoir la tarification" if gm.ratio.iloc[0] > SEUIL
                   else "surveiller son ratio, il reste sous le seuil d'alerte")
         titre_m = (f"{prefixe.capitalize()}{haut} rapporte le plus ({meur(gm.marge.iloc[-1])}) et {prefixe}{bas} le moins "
                    f"({meur(gm.marge.iloc[0])}). Action : {action}")
@@ -279,7 +280,7 @@ if page == "Portefeuille":
             titre_l = f"Le levier qui bouge le plus est {n_max} ({var_max * 100:+.0f} %), et il dégrade le ratio. Action : {action}"
         else:
             titre_l = f"Le levier qui bouge le plus est {n_max} ({var_max * 100:+.0f} %), et il améliore le ratio. Action : consolider cette tendance"
-        graphique(fl2, titre_l.replace(".", ","), 300)
+        graphique(fl2, titre_l, 300)
         st.caption(f"Comparaison : {comparaison}. Rouge = évolution défavorable au ratio, vert = favorable. "
                    "Ratio = fréquence × coût moyen ÷ prime moyenne.")
     else:
@@ -338,7 +339,7 @@ elif page == "Technique et clients":
     graphique(fd, titre, 380)
 
     # Rétention : matrice par cohorte
-    st.subheader("Matrice de rétention par cohorte")
+    st.subheader("Rétention")
     coh = lire("retention_cohortes")
     coh = coh[coh["produit"].isin(produits)].groupby(["cohorte", "k"])[["contrats", "retenus"]].sum().reset_index()
     coh["retention"] = coh.retenus / coh.contrats

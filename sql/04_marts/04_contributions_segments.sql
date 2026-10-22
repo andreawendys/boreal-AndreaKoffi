@@ -1,5 +1,6 @@
 -- Livrable 3, décomposition : contribution de chaque segment à la variation annuelle du ratio.
 -- Contribution = charge du segment / primes du portefeuille, variation d'une année à l'autre.
+
 create or replace table marts.contributions_segments as
 with axes as (
     select annee, 'Produit' as axe, produit as modalite, paye, prime_acquise from marts.base_technique

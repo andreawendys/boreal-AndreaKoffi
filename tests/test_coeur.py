@@ -1,5 +1,6 @@
-"""Tests de la couche cœur : clés, intégrité, réconciliation, exposition.
+"""Tests automatisés de la couche cœur : clés, intégrité, réconciliation, exposition.
 
+Ils vérifient que le modèle en étoile est fiable avant le calcul des indicateurs.
 Chaque test renvoie le nombre d'anomalies ; zéro signifie que le test est réussi.
 Un test en échec fait sortir le script avec le code 1, ce qui interrompt le chargement.
 

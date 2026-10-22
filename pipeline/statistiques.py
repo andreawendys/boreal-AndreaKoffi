@@ -1,4 +1,5 @@
 """Rigueur statistique : intervalles de confiance, tests de comparaison, queue des coûts."""
+
 import duckdb
 import numpy as np
 from scipy.stats import chi2, binomtest, mannwhitneyu

@@ -1,7 +1,6 @@
 """Ingestion des sources Boréal Assurances dans la couche brute (schéma raw).
 
-La couche brute est une copie fidèle des sources : toutes les valeurs sont lues en texte
-et aucune correction n'est appliquée. Chaque ligne conserve son fichier d'origine et sa
+La couche brute est une copie fidèle des sources : Chaque ligne conserve son fichier d'origine et sa
 date de chargement. Chaque chargement est tracé dans le journal meta.ingestion_log.
 Le chargement est idempotent : rejouer un fichier ne crée aucun doublon.
 
@@ -148,6 +147,15 @@ def verifier_rejeu(con):
     assert avant == apres, "Doublon détecté : le rechargement n'est pas idempotent"
 
 
+def synthese(con):
+    """Récapitulatif par source : dernier chargement de chaque fichier (et non l'historique cumulé)."""
+    return con.sql("""
+        select source, count(*) as fichiers, sum(lignes_lues) as lignes, min(statut) as statut
+        from (select * from meta.ingestion_log
+              qualify row_number() over (partition by fichier order by charge_le desc) = 1)
+        group by 1 order by 1""")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Ingestion des sources Boréal (couche brute)")
     parser.add_argument("--mois", help="recharge uniquement ce mois de règlements, ex. 2024_03")
@@ -173,8 +181,7 @@ def main():
 
         # Contrôle d'idempotence puis synthèse du journal.
         verifier_rejeu(con)
-        print(con.sql("select source, count(*) as fichiers, sum(lignes_lues) as lignes, "
-                      "max(statut) as statut from meta.ingestion_log group by 1 order by 1"))
+        print(synthese(con))
     finally:
         con.close()
 

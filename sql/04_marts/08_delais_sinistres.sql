@@ -1,4 +1,6 @@
 -- Délais de gestion par sinistre (en jours).
+-- Combien de jours prennent la déclaration, le premier règlement et la clôture ?
+
 create or replace table marts.delais_sinistres as
 with paiements as (
     select sinistre_id, min(date_paiement) as premier, max(date_paiement) as dernier

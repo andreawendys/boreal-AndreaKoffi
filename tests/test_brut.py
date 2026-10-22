@@ -1,9 +1,10 @@
-"""Tests de la couche brute (Jour 1).
+"""Tests de l'ingestion : vérification de la couche brute (Livrable 1).
 
-Chaque test vérifie une garantie de l'ingestion. Le script retourne un code de sortie 1
-dès qu'un test échoue, ce qui permet d'interrompre le chargement dans un enchaînement.
-
+Vérifient que les fichiers sources ont été copiés dans la couche brute (raw) au complet,
+avec leur fichier d'origine et sans doublon.
+Si un test échoue, le script retourne le code de sortie 1 : la chaîne s'arrête avant la préparation.
 """
+
 import shutil
 import sys
 import tempfile

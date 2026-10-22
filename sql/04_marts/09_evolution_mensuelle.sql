@@ -1,63 +1,63 @@
--- Évolution mensuelle du portefeuille (alimente le dashboard).
+-- Livrable 5 : évolution mensuelle du portefeuille, alimentation du dashboard.
+-- Quelle est la situation mois par mois, par produit, zone et canal ?
+
 create or replace table marts.evolution_mensuelle as
 with mois as (
-    select m::date as debut, (m + interval 1 month - interval 1 day)::date as fin
-    from generate_series(date '2020-01-01', date '2025-06-01', interval 1 month) as t(m)
+    select m::date as debut, last_day(m::date) as fin
+    from generate_series(date '2020-01-01', date '2025-06-01', interval 1 month) t(m)
+),
+exposition as (
+    select
+        mo.debut as mois,
+        c.produit,
+        s.zone_risque,
+        c.canal_distribution as canal,
+        c.contrat_id,
+        greatest(date_diff('day', greatest(c.date_effet, mo.debut),
+                 least(coalesce(c.date_resiliation, date '2025-06-30'), date '2025-06-30', mo.fin)) + 1, 0) as jours,
+        date_diff('day', make_date(year(mo.debut), 1, 1), make_date(year(mo.debut), 12, 31)) + 1 as jours_annee,
+        c.prime_annuelle,
+        (c.date_resiliation between mo.debut and least(mo.fin, date '2025-06-30'))::int as resilie
+    from mois mo
+    cross join core.dim_contrat c
+    join core.dim_segment_risque s using (segment_id)
+    where not c.en_quarantaine
 ),
 expo as (
-    select m.debut as mois, m.fin as fin_mois, e.date_debut, e.date_fin, c.prime_annuelle,
-           date_diff('day', greatest(e.date_debut, m.debut), least(e.date_fin, m.fin)) + 1 as jours
-    from core.fait_exposition e
-    join mois m on year(m.debut) = e.annee and e.date_debut <= m.fin and e.date_fin >= m.debut
-    join core.dim_contrat c on c.contrat_id = e.contrat_id
-),
-expo_mois as (
-    select mois,
-           count(*) filter (where date_debut <= fin_mois and date_fin >= fin_mois) as contrats_actifs,
-           sum(cast(jours as double) / date_diff('day', make_date(year(mois), 1, 1), make_date(year(mois) + 1, 1, 1))) as annees_police,
-           sum(prime_annuelle * jours / date_diff('day', make_date(year(mois), 1, 1), make_date(year(mois) + 1, 1, 1))) as primes_acquises
-    from expo
-    group by 1
+    select
+        mois, produit, zone_risque, canal,
+        count(*) filter (where jours > 0) as contrats_actifs,
+        sum(jours / jours_annee) as annees_police,
+        sum(prime_annuelle * jours / jours_annee) as prime_acquise,
+        sum(resilie) as nb_resiliations
+    from exposition
+    group by all
 ),
 sin as (
-    select date_trunc('month', s.date_survenance)::date as mois,
-           count(*) as nb_sinistres, sum(coalesce(s.montant_regle, 0)) as paye
-    from core.fait_sinistre s
-    where s.statut in ('OUVERT', 'CLOTURE') and not s.contrat_en_quarantaine
-      and exists (select 1 from core.fait_exposition e
-                  where e.contrat_id = s.contrat_id and e.annee = year(s.date_survenance))
-    group by 1
-),
-res as (
-    select date_trunc('month', date_resiliation)::date as mois, count(*) as nb_resiliations
-    from core.dim_contrat
-    where not en_quarantaine and date_resiliation <= date '2025-06-30'
-    group by 1
-),
-base as (
-    select e.mois, year(e.mois) as annee, month(e.mois) as mois_num,
-           e.contrats_actifs, e.annees_police, e.primes_acquises,
-           coalesce(s.nb_sinistres, 0) as nb_sinistres, coalesce(s.paye, 0) as paye,
-           coalesce(r.nb_resiliations, 0) as nb_resiliations
-    from expo_mois e
-    left join sin s on s.mois = e.mois
-    left join res r on r.mois = e.mois
-),
-ind as (
-    select *,
-           nb_sinistres / annees_police as frequence,
-           paye / nullif(nb_sinistres, 0) as cout_moyen,
-           primes_acquises / annees_police as prime_moyenne,
-           paye / primes_acquises as ratio_sp,
-           nb_resiliations / annees_police as taux_resiliation
-    from base
+    select
+        date_trunc('month', f.date_survenance)::date as mois,
+        c.produit, s.zone_risque, c.canal_distribution as canal,
+        count(*) as nb_sinistres,
+        sum(f.montant_regle) as paye,
+        count(*) filter (where f.montant_regle > 1000000) as nb_exceptionnels,
+        sum(f.montant_regle) filter (where f.montant_regle > 1000000) as paye_exceptionnel,
+        sum(greatest(f.reserve_initiale - f.montant_regle, 0)) filter (where f.statut = 'OUVERT') as reserve_restante
+    from core.fait_sinistre f
+    join core.dim_contrat c using (contrat_id)
+    join core.dim_segment_risque s using (segment_id)
+    -- comme la base technique : seuls les sinistres d'une année où le contrat a une exposition
+    join core.fait_exposition x on x.contrat_id = f.contrat_id and x.annee = year(f.date_survenance)
+    where not f.contrat_en_quarantaine and f.statut in ('OUVERT', 'CLOTURE')
+    group by all
 )
-select *,
-       lag(primes_acquises, 12) over (order by mois) as primes_acquises_n1,
-       lag(frequence, 12) over (order by mois) as frequence_n1,
-       lag(cout_moyen, 12) over (order by mois) as cout_moyen_n1,
-       lag(prime_moyenne, 12) over (order by mois) as prime_moyenne_n1,
-       lag(ratio_sp, 12) over (order by mois) as ratio_sp_n1,
-       lag(taux_resiliation, 12) over (order by mois) as taux_resiliation_n1
-from ind
-order by mois;
+select
+    e.mois, year(e.mois) as annee, month(e.mois) as mois_num,
+    e.produit, e.zone_risque, e.canal,
+    e.contrats_actifs, e.annees_police, e.prime_acquise, e.nb_resiliations,
+    coalesce(s.nb_sinistres, 0) as nb_sinistres,
+    coalesce(s.paye, 0) as paye,
+    coalesce(s.nb_exceptionnels, 0) as nb_exceptionnels,
+    coalesce(s.paye_exceptionnel, 0) as paye_exceptionnel,
+    coalesce(s.reserve_restante, 0) as reserve_restante
+from expo e
+left join sin s using (mois, produit, zone_risque, canal);

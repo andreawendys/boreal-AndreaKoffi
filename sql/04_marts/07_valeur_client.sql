@@ -1,4 +1,6 @@
 -- Valeur observée par client : primes acquises moins sinistres payés.
+-- Combien chaque client rapporte-t-il ou coûte-t-il ?
+
 create or replace table marts.valeur_client as
 with primes as (
     select c.client_id,

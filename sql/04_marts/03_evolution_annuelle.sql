@@ -1,5 +1,7 @@
 -- Livrable 3, décomposition : évolution annuelle du ratio sinistres/primes.
--- Ratio = fréquence × coût moyen / prime moyenne ; variation répartie par moyennes logarithmiques.
+-- Comment le ratio évolue d’une année à l’autre ?
+-- Ratio = fréquence × coût moyen / prime moyenne 
+
 create or replace table marts.evolution_annuelle as
 with annuel as (
     select

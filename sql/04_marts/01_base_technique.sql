@@ -1,7 +1,7 @@
 -- -- Livrable 3, indicateurs techniques : base technique du portefeuille.
+-- Table de départ qui stocke les totaux (années-police, sinistres, montants payés, primes acquises, résiliations)
 -- Grain : année × produit × zone × formule × canal × tranche d'âge.
--- Les sinistres sont rattachés à leur année de survenance.
---  les autres (contrat en quarantaine, sinistre hors période de couverture) sont écartés de la base.
+
 create or replace table marts.base_technique as
 with exposition as (
     select
