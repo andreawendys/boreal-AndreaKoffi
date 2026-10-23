@@ -13,26 +13,31 @@ import streamlit as st
 DB = os.environ.get("BOREAL_DB") or str(Path(__file__).resolve().parent / "warehouse" / "boreal.duckdb")
 SEUIL = 0.70          # alerte : ratio sinistres/primes au-dessus de 70 %
 MOIS_IMMATURES = 3    # derniers mois : sinistres encore en cours de déclaration et de règlement
-BLEU, ROUGE, GRIS, VERT, ORANGE, MARINE = "#1f5fa8", "#c0392b", "#8a8f98", "#2e8b57", "#e08e0b", "#14213d"
+BLEU, ROUGE, GRIS, VERT, ORANGE, MARINE = "#6d28d9", "#e11d48", "#94a3b8", "#059669", "#f59e0b", "#2e1065"
+CARTE = "#ffffff"   # fond des cartes et graphiques
 
 st.set_page_config(page_title="Boréal Assurances", layout="wide")
 st.markdown(f"""
 <style>
-.stApp {{ background: #eef1f5; }}
-[data-testid="stSidebar"] {{ background: #ffffff; border-right: 1px solid #dde2e8; }}
+.stApp {{ background: #f4f1fa; font-family: "Trebuchet MS", "Segoe UI", sans-serif; }}
 [data-testid="stHeader"] {{ background: transparent; }}
-[data-testid="stMetric"] {{ background: #fff; border-radius: 10px; padding: 14px 18px; border-top: 4px solid {BLEU};
-                            box-shadow: 0 1px 4px rgba(0,0,0,.12); }}
-[data-testid="stPlotlyChart"], [data-testid="stDataFrame"] {{ background: #fff; border-radius: 10px; padding: 8px;
-                            box-shadow: 0 1px 4px rgba(0,0,0,.12); }}
-.bandeau {{ background: linear-gradient(90deg, {MARINE}, {BLEU}); color: #fff; padding: 14px 22px; border-radius: 10px;
-            font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; }}
-.bandeau span {{ font-size: .9rem; font-weight: 400; opacity: .85; margin-left: 14px; }}
-div[role="radiogroup"] {{ gap: 8px; }}
-div[role="radiogroup"] label {{ background: #fff; border: 1px solid #cfd6de; border-radius: 20px; padding: 4px 16px; }}
+[data-testid="stSidebar"] {{ background: #ffffff; border-right: 1px solid #e0d8f2; }}
+[data-testid="stMetric"] {{ background: {CARTE}; border-radius: 18px; padding: 14px 20px; border-left: 6px solid {BLEU};
+                            box-shadow: 0 2px 8px rgba(46,16,101,.12); }}
+[data-testid="stPlotlyChart"], [data-testid="stDataFrame"] {{ background: {CARTE}; border-radius: 18px; padding: 10px;
+                            box-shadow: 0 2px 8px rgba(46,16,101,.12); }}
+.bandeau {{ background: {CARTE}; border-left: 10px solid {BLEU}; color: {MARINE}; padding: 12px 22px; border-radius: 4px 18px 18px 4px;
+            font-size: 1.4rem; font-weight: 700; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(46,16,101,.12); }}
+.bandeau span {{ font-size: .85rem; font-weight: 400; color: #6b6480; margin-left: 14px; }}
+div[role="radiogroup"] {{ gap: 0; border-bottom: 2px solid #ddd5ee; }}
+div[role="radiogroup"] label {{ background: transparent; border: none; border-radius: 0; padding: 6px 22px;
+                                border-bottom: 4px solid transparent; margin-bottom: -2px; }}
+div[role="radiogroup"] label:has(input:checked) {{ border-bottom: 4px solid {BLEU}; font-weight: 700; }}
+div[role="radiogroup"] label > div:first-child {{ display: none; }}
 [data-baseweb="select"] > div, [data-testid="stMultiSelect"] > div > div, [data-testid="stSelectbox"] > div > div {{
-    background: #dde3ea !important; border: 1px solid #c3ccd6 !important; }}
-h2, h3 {{ color: {MARINE}; }}
+    background: #e6f4f1 !important; border: 1px solid #0f766e !important; border-radius: 14px !important; }}
+[data-baseweb="tag"] {{ background: #0f766e !important; color: #fff !important; border-radius: 14px !important; }}
+h2, h3 {{ color: {MARINE}; border-left: 5px solid {ORANGE}; padding-left: 10px; }}
 </style>""", unsafe_allow_html=True)
 
 
@@ -90,6 +95,7 @@ def serie_mensuelle(df):
         "frequence": m.nb_sinistres / m.annees_police,
         "cout": m.paye / m.nb_sinistres,
         "resiliation": m.nb_resiliations / m.annees_police,
+        "prime": m.prime_acquise / m.annees_police,
     })
 
 
@@ -100,8 +106,8 @@ def zone_immature(fig, dernier):
 
 
 def mise_en_forme(fig, titre, hauteur=380):
-    fig.update_layout(title=dict(text=titre.replace(" Action :", "<br>Action :"), font=dict(size=15, color=MARINE)),
-                      template="plotly_white", height=hauteur,
+    fig.update_layout(title=dict(text=titre.replace(" Piste :", "<br>Piste :"), font=dict(size=15, color=MARINE)),
+                      template="plotly_white", paper_bgcolor=CARTE, plot_bgcolor=CARTE, height=hauteur, font=dict(family="Trebuchet MS, Segoe UI, sans-serif"),
                       margin=dict(l=10, r=10, t=85, b=10), legend=dict(orientation="h", y=-0.18))
     return fig
 
@@ -119,29 +125,29 @@ fin_donnees = dernier_mois + pd.offsets.MonthEnd(0)
 
 # ---------- en-tête et navigation (en haut de page) ----------
 bandeau = st.empty()   # rempli plus bas, une fois la période choisie connue
-page = st.radio("Page", ["Portefeuille", "Technique et clients", "Exploitation", "Définitions"],
+page = st.radio("Page", ["Synthèse", "Risque et clientèle", "Suivi de la chaîne"],
                 horizontal=True, label_visibility="collapsed")
 
 # ---------- filtres communs (valables pour toutes les pages) ----------
-st.sidebar.markdown("### Filtres")
+st.sidebar.markdown("### Réglages")
 mois_liste = list(pd.date_range(mens["mois"].min(), dernier_mois, freq="MS"))
-debut, fin = st.sidebar.select_slider("Période", options=mois_liste, value=(mois_liste[0], mois_liste[-1]),
+debut, fin = st.sidebar.select_slider("Fenêtre de temps", options=mois_liste, value=(mois_liste[0], mois_liste[-1]),
                                       format_func=lambda d: d.strftime("%m/%Y"),
                                       help="Mois de survenance des sinistres et d'exposition des contrats.")
-produits = st.sidebar.multiselect("Produit", sorted(mens["produit"].unique()), default=sorted(mens["produit"].unique()))
-zones = st.sidebar.multiselect("Zone de risque", sorted(mens["zone_risque"].unique()), default=sorted(mens["zone_risque"].unique()))
-canaux = st.sidebar.multiselect("Canal de distribution", sorted(mens["canal"].unique()), default=sorted(mens["canal"].unique()))
+produits = st.sidebar.multiselect("Produits", sorted(mens["produit"].unique()), default=sorted(mens["produit"].unique()))
+zones = st.sidebar.multiselect("Zones de risque", sorted(mens["zone_risque"].unique()), default=sorted(mens["zone_risque"].unique()))
+canaux = st.sidebar.multiselect("Canaux de vente", sorted(mens["canal"].unique()), default=sorted(mens["canal"].unique()))
 st.sidebar.divider()
-exclure = st.sidebar.checkbox(f"Exclure les {MOIS_IMMATURES} derniers mois", value=False,
-                              help="Les sinistres récents ne sont pas encore tous déclarés ni payés : le ratio des derniers mois "
-                                   "est sous-estimé. Décoché, les chiffres sont ceux du dossier.")
-hors_exc = st.sidebar.checkbox("Hors sinistre exceptionnel (> 1 M€)", value=False,
-                               help="Retire un dossier de 2,5 M€ (22 % du payé) qui fausse les moyennes. "
-                                    "Décoché, les chiffres sont ceux du dossier. S'applique à la page Portefeuille.")
+exclure = st.sidebar.toggle(f"Écarter les {MOIS_IMMATURES} derniers mois", value=False,
+                            help="Les sinistres récents ne sont pas encore tous déclarés ni payés : le ratio des derniers mois "
+                                 "est sous-estimé. Désactivé, les chiffres sont ceux du dossier.")
+hors_exc = st.sidebar.toggle("Mettre de côté le sinistre exceptionnel (> 1 M€)", value=False,
+                             help="Retire un dossier de 2,5 M€ (22 % du payé) qui fausse les moyennes. "
+                                  "Désactivé, les chiffres sont ceux du dossier. Concerne la page Synthèse.")
 
 limite = dernier_mois - pd.DateOffset(months=MOIS_IMMATURES) if exclure else dernier_mois
 fin_eff = min(fin, limite)
-bandeau.markdown(f'<div class="bandeau">Boréal Assurances<span>Période choisie : {debut:%m/%Y} à {fin_eff:%m/%Y}</span></div>',
+bandeau.markdown(f'<div class="bandeau">Boréal · tableau de bord IARD<span>du {debut:%m/%Y} au {fin_eff:%m/%Y}</span></div>',
                  unsafe_allow_html=True)
 
 mens_calc = mens.copy()
@@ -150,7 +156,7 @@ if hors_exc:
     mens_calc["nb_sinistres"] = mens_calc["nb_sinistres"] - mens_calc["nb_exceptionnels"]
 filtre_df = mens_calc[mens_calc["produit"].isin(produits) & mens_calc["zone_risque"].isin(zones) & mens_calc["canal"].isin(canaux)]
 if filtre_df.empty:
-    st.warning("Aucune donnée pour cette sélection.")
+    st.warning("Rien à afficher avec ces réglages.")
     st.stop()
 
 periode = filtre_df[(filtre_df.mois >= debut) & (filtre_df.mois <= fin_eff)]
@@ -161,15 +167,15 @@ k, k1 = somme(periode), somme(precedente)
 immature_inclus = (not exclure) and fin_eff >= dernier_mois - pd.DateOffset(months=MOIS_IMMATURES - 1)
 
 # =============================================================== PORTEFEUILLE
-if page == "Portefeuille":
-    st.title("Pilotage du portefeuille")
-    st.caption(f"Données arrêtées au {fin_donnees:%d/%m/%Y}. Les écarts comparent à la même période un an plus tôt, quand elle existe.")
+if page == "Synthèse":
+    st.title("Synthèse du portefeuille")
+    st.caption(f"Situation au {fin_donnees:%d/%m/%Y}. Chaque variation est mesurée face à la même période de l'année précédente, lorsqu'elle existe.")
     if k["ratio"] > SEUIL:
-        st.error(f"Alerte : ratio sinistres/primes de {pct(k['ratio'])}, au-dessus du seuil de {pct(SEUIL, 0)}.")
+        st.error(f"Seuil franchi : le ratio sinistres/primes atteint {pct(k['ratio'])} (limite fixée à {pct(SEUIL, 0)}).")
     else:
-        st.success(f"Ratio sinistres/primes de {pct(k['ratio'])}, sous le seuil d'alerte de {pct(SEUIL, 0)}.")
+        st.success(f"Situation saine : ratio sinistres/primes à {pct(k['ratio'])}, en dessous de la limite de {pct(SEUIL, 0)}.")
     if immature_inclus:
-        st.info(f"Les {MOIS_IMMATURES} derniers mois sont inclus mais incomplets : leur ratio est sous-estimé.")
+        st.info(f"Attention, les {MOIS_IMMATURES} derniers mois sont intégrés alors qu'ils sont incomplets : leur ratio paraît trop bas.")
 
     actifs = periode[periode.mois == periode.mois.max()].contrats_actifs.sum()
     actifs_n1 = precedente[precedente.mois == precedente.mois.max()].contrats_actifs.sum() if len(precedente) else float("nan")
@@ -180,7 +186,7 @@ if page == "Portefeuille":
                 help="Contrats en vigueur le dernier mois de la période.")
     c[2].metric("Ratio sinistres/primes", pct(k["ratio"]),
                 None if pd.isna(k1["ratio"]) else f"{(k['ratio'] - k1['ratio']) * 100:+.1f} pts".replace(".", ","),
-                delta_color="inverse", help="Sinistres payés ÷ primes acquises. Plus il est bas, plus le portefeuille est rentable.")
+                delta_color="inverse", help="Sinistres payés ÷ primes acquises. Plus il est bas, plus le portefeuille est rentable. Seuil de 70 % = hypothèse de travail : frais de gestion et commissions (absents des sources) pèsent en général 25 à 30 % des primes.")
     c = st.columns(3)
     c[0].metric("Fréquence", pct(k["frequence"], 2), delta_pct(k["frequence"], k1["frequence"]), delta_color="inverse",
                 help="Sinistres retenus ÷ années-police.")
@@ -192,10 +198,10 @@ if page == "Portefeuille":
     s = serie_mensuelle(filtre_df)
 
     # Graphique 1 : évolution mensuelle comparée à l'année précédente
-    st.subheader("Évolution mensuelle")
+    st.subheader("Tendance mois par mois")
     noms = {"ratio": "Ratio sinistres/primes", "frequence": "Fréquence", "cout": "Coût moyen",
             "resiliation": "Taux de résiliation"}
-    ind = st.selectbox("Indicateur", list(noms), format_func=noms.get)
+    ind = st.selectbox("Indicateur suivi", list(noms), format_func=noms.get)
     fmt = ".1%" if ind in ("ratio", "resiliation") else (".2%" if ind == "frequence" else ",.0f")
     cour = s[ind][(s.index >= debut) & (s.index <= fin_eff)]
     prec = s[ind].shift(12)[cour.index]
@@ -211,18 +217,39 @@ if page == "Portefeuille":
     f1.update_yaxes(tickformat=fmt, rangemode="tozero")
     mois_alerte = int((cour > SEUIL).sum()) if ind == "ratio" else None
     if ind == "ratio":
-        titre1 = (f"{mois_alerte} mois sur {len(cour)} dépassent le seuil de {SEUIL:.0%} : "
-                  + ("identifier les mois et segments en cause" if mois_alerte else "aucun mois ne justifie une action tarifaire"))
+        titre1 = (f"Limite de {SEUIL:.0%} franchie sur {mois_alerte} mois (sur {len(cour)}) : "
+                  + ("repérer les mois et segments responsables" if mois_alerte else "rien ne justifie de toucher aux tarifs"))
     else:
         v1, v0 = cour.dropna(), prec.dropna()
-        titre1 = (f"{noms[ind]} : {'en hausse' if v1.mean() > v0.mean() else 'en baisse'} vs l'année précédente sur la période"
+        titre1 = (f"{noms[ind]} {'plus élevé(e)' if v1.mean() > v0.mean() else 'plus bas(se)'} que l'an dernier sur la fenêtre choisie"
                   if len(v1) and len(v0) else f"{noms[ind]} mensuel")
     graphique(f1, titre1)
 
+    # Graphique : prime moyenne mensuelle
+    st.subheader("Prix moyen d'un contrat")
+    pm = s["prime"][(s.index >= debut) & (s.index <= fin_eff)]
+    pm_prec = s["prime"].shift(12)[pm.index]
+    fp = go.Figure()
+    fp.add_scatter(x=pm.index, y=pm_prec, name="Année précédente", line=dict(color=GRIS, width=2, dash="dot"),
+                   hovertemplate="%{x|%m/%Y}<br>Année précédente : %{y:,.0f} €<extra></extra>")
+    fp.add_scatter(x=pm.index, y=pm, name="Prime moyenne", line=dict(color=ORANGE, width=3), mode="lines+markers",
+                   hovertemplate="%{x|%m/%Y}<br>Prime moyenne : %{y:,.0f} €<extra></extra>")
+    fp.update_yaxes(ticksuffix=" €", rangemode="tozero")
+    pm_ok = pm.dropna()
+    if len(pm_ok) > 1:
+        ecart = (pm_ok.iloc[-1] - pm_ok.iloc[0]) / pm_ok.iloc[0]
+        titre_p = (f"La prime moyenne passe de {eur(pm_ok.iloc[0])} à {eur(pm_ok.iloc[-1])} ({ecart * 100:+.1f} %".replace(".", ",")
+                   + ") : le prix est stable, il n'explique pas l'évolution du ratio" if abs(ecart) < 0.05
+                   else f"La prime moyenne passe de {eur(pm_ok.iloc[0])} à {eur(pm_ok.iloc[-1])} ({ecart * 100:+.1f} %".replace(".", ",")
+                   + ") : le prix pèse sur le ratio")
+    else:
+        titre_p = "Prime moyenne mensuelle"
+    graphique(fp, titre_p, 330)
+
     # Graphique 2 : marge technique par segment
-    st.subheader("Où le portefeuille gagne ou perd de l'argent")
+    st.subheader("Rentabilité par segment")
     axes_marge = {"Produit": ("produit", ""), "Zone de risque": ("zone_risque", "la zone "), "Canal": ("canal", "le canal ")}
-    axe_m = st.selectbox("Segment", list(axes_marge), help="Marge technique = primes acquises − sinistres payés, sur la période choisie.")
+    axe_m = st.selectbox("Découper par", list(axes_marge), help="Marge technique = primes acquises − sinistres payés, sur la période choisie.")
     col_m, prefixe = axes_marge[axe_m]
     gm = periode.assign(zone_risque=periode.zone_risque.astype(str)).groupby(col_m)[["prime_acquise", "paye"]].sum()
     gm["marge"] = gm.prime_acquise - gm.paye
@@ -241,16 +268,16 @@ if page == "Portefeuille":
 
     if len(gm) > 1:
         haut, bas = gm.index[-1], gm.index[0]
-        action = ("vérifier si un sinistre exceptionnel explique l'écart avant de revoir la tarification" if gm.ratio.iloc[0] > SEUIL
-                  else "surveiller son ratio, il reste sous le seuil d'alerte")
-        titre_m = (f"{prefixe.capitalize()}{haut} rapporte le plus ({meur(gm.marge.iloc[-1])}) et {prefixe}{bas} le moins "
-                   f"({meur(gm.marge.iloc[0])}). Action : {action}")
+        action = ("contrôler d'abord l'effet d'un gros sinistre avant de modifier les prix" if gm.ratio.iloc[0] > SEUIL
+                  else "suivre son ratio, encore sous la limite")
+        titre_m = (f"{prefixe.capitalize()}{haut} est la plus rentable ({meur(gm.marge.iloc[-1])}) tandis que {prefixe}{bas} l'est le moins "
+                   f"({meur(gm.marge.iloc[0])}). Piste : {action}")
     else:
         titre_m = "Marge technique par segment"
     graphique(fm2, titre_m, 260 + 40 * len(gm))
 
     # Graphique 3 : le levier qui bouge le plus vs N-1
-    st.subheader("Ce qui fait bouger le ratio")
+    st.subheader("Les moteurs de variation du ratio")
     if len(precedente):
         ka, kb, comparaison = k, k1, "la période choisie vs la même période un an plus tôt"
     else:   # pas d'année précédente disponible : on compare les 12 derniers mois aux 12 mois d'avant
@@ -277,27 +304,27 @@ if page == "Portefeuille":
         n_max = max(leviers, key=lambda n: abs(leviers[n][0]))
         var_max, _, action = leviers[n_max]
         if defavorable(n_max, var_max):
-            titre_l = f"Le levier qui bouge le plus est {n_max} ({var_max * 100:+.0f} %), et il dégrade le ratio. Action : {action}"
+            titre_l = f"{n_max.capitalize()} pèse le plus ({var_max * 100:+.0f} %) et tire le ratio vers le haut. Piste : {action}"
         else:
-            titre_l = f"Le levier qui bouge le plus est {n_max} ({var_max * 100:+.0f} %), et il améliore le ratio. Action : consolider cette tendance"
+            titre_l = f"{n_max.capitalize()} pèse le plus ({var_max * 100:+.0f} %) et améliore le ratio. Piste : conforter cette évolution"
         graphique(fl2, titre_l, 300)
-        st.caption(f"Comparaison : {comparaison}. Rouge = évolution défavorable au ratio, vert = favorable. "
+        st.caption(f"Base de comparaison : {comparaison}. En rouge, ce qui dégrade le ratio ; en vert, ce qui l'améliore. "
                    "Ratio = fréquence × coût moyen ÷ prime moyenne.")
     else:
-        st.info("Pas assez d'historique pour comparer cette sélection.")
+        st.info("Historique insuffisant pour établir une comparaison.")
 
 # =============================================================== TECHNIQUE ET CLIENTS
-elif page == "Technique et clients":
-    st.title("Technique et clients")
+elif page == "Risque et clientèle":
+    st.title("Risque et clientèle")
     annees = range(debut.year, fin_eff.year + 1)
     b = base[base.annee.isin(annees) & base.produit.isin(produits) & base.zone_risque.isin(zones) & base.canal.isin(canaux)]
     st.caption("Les filtres s'appliquent aux années entières couvertes par la période. La décomposition porte sur le portefeuille entier ; "
                "les cohortes se filtrent par produit ; les clients ne dépendent ni de la zone ni du canal.")
 
     # Ratio par segment
-    st.subheader("Ratio sinistres/primes par segment")
+    st.subheader("Comparaison des segments")
     axes = {"Zone de risque": "zone_risque", "Formule": "formule", "Canal": "canal", "Tranche d'âge": "tranche_age", "Produit": "produit"}
-    axe = st.selectbox("Axe d'analyse", list(axes), help="Ratio = sinistres payés ÷ primes acquises, calculé sur la sélection.")
+    axe = st.selectbox("Regrouper par", list(axes), help="Ratio = sinistres payés ÷ primes acquises, calculé sur la sélection.")
     g = b.assign(zone_risque=b.zone_risque.astype(str)).groupby(axes[axe])[["annees_police", "nb_sinistres", "paye", "prime_acquise"]].sum()
     g["ratio"] = g.paye / g.prime_acquise
     g["frequence"] = g.nb_sinistres / g.annees_police
@@ -309,12 +336,12 @@ elif page == "Technique et clients":
                                         "Coût moyen : %{customdata[1]:,.0f} €<br>Primes : %{customdata[2]:,.0f} €<extra></extra>"))
     fs.add_vline(x=SEUIL, line_dash="dash", line_color=ROUGE)
     fs.update_xaxes(tickformat=".0%")
-    titre = (f"{axe} : « {g.index[-1]} » est le segment le moins rentable ({pct(g.ratio.iloc[-1], 0)}), à surveiller en priorité"
+    titre = (f"{axe} : « {g.index[-1]} » est le segment le plus coûteux ({pct(g.ratio.iloc[-1], 0)}), à traiter en premier"
              if len(g) else "Aucune donnée")
     graphique(fs, titre, 300 + 25 * len(g))
 
     # Décomposition
-    st.subheader("Décomposition de l'évolution du ratio")
+    st.subheader("Pourquoi le ratio a bougé, année après année")
     st.caption("Lecture : 1 point = 1 € de sinistres en plus (ou en moins) pour 100 € de primes. Le ratio vaut fréquence × coût moyen ÷ prime moyenne ; "
                "la prime moyenne étant presque stable, son effet est proche de zéro.")
     ev = lire("evolution_annuelle").dropna(subset=["effet_frequence"])
@@ -333,32 +360,32 @@ elif page == "Technique et clients":
         d = complet.iloc[-1]
         eff = {"de la fréquence": d.effet_frequence, "du coût moyen": d.effet_cout, "de la prime moyenne": d.effet_prime}
         moteur = max(eff, key=lambda n: abs(eff[n]))
-        titre = f"En {int(d.annee)}, le ratio varie de {d.variation_ratio * 100:+.0f} points, surtout à cause {moteur}".replace(".", ",")
+        titre = f"Sur {int(d.annee)}, le ratio bouge de {d.variation_ratio * 100:+.0f} points, principalement sous l'effet {moteur}".replace(".", ",")
     else:
         titre = "Décomposition du ratio"
     graphique(fd, titre, 380)
 
     # Rétention : matrice par cohorte
-    st.subheader("Rétention")
+    st.subheader("Fidélité des contrats par cohorte")
     coh = lire("retention_cohortes")
     coh = coh[coh["produit"].isin(produits)].groupby(["cohorte", "k"])[["contrats", "retenus"]].sum().reset_index()
     coh["retention"] = coh.retenus / coh.contrats
     mat = coh.pivot(index="cohorte", columns="k", values="retention")
-    fh = go.Figure(go.Heatmap(z=mat.values * 100, x=[f"{int(c)} an(s)" for c in mat.columns], y=mat.index.astype(str),
-                              colorscale="Blues", zmin=0, zmax=100, text=mat.apply(lambda col: col.map(lambda v: "" if pd.isna(v) else f"{v * 100:.0f} %")).values, texttemplate="%{text}",
+    fh = go.Figure(go.Heatmap(xgap=3, ygap=3, z=mat.values * 100, x=[f"{int(c)} an(s)" for c in mat.columns], y=mat.index.astype(str),
+                              colorscale="Purples", zmin=0, zmax=100, text=mat.apply(lambda col: col.map(lambda v: "" if pd.isna(v) else f"{v * 100:.0f} %")).values, texttemplate="%{text}",
                               hovertemplate="Cohorte %{y}<br>%{x} après souscription : %{z:.1f} % des contrats conservés<extra></extra>",
                               colorbar=dict(title="%")))
     fh.update_yaxes(autorange="reversed", title="Cohorte")
     pooled = coh.groupby("k")[["contrats", "retenus"]].sum()
     pooled = pooled.retenus / pooled.contrats
-    titre = (f"Un contrat sur deux seulement est encore là après {int(pooled.index[-1])} ans : agir sur la rétention dès la 1re année"
-             if len(pooled) and pooled.iloc[-1] < 0.6 else "Part des contrats conservés, par cohorte de souscription")
+    titre = (f"Après {int(pooled.index[-1])} ans, un contrat sur deux seulement subsiste : renforcer la fidélisation dès la 1re année"
+             if len(pooled) and pooled.iloc[-1] < 0.6 else "Proportion de contrats encore actifs, par année de souscription")
     graphique(fh, titre, 380)
 
     # Valeur client
-    st.subheader("Concentration de la valeur client")
+    st.subheader("Qui crée la valeur ?")
     vc0 = lire("valeur_client")
-    tranches = st.multiselect("Tranche d'âge des clients", sorted(vc0.tranche_age.dropna().unique()),
+    tranches = st.multiselect("Âge des clients", sorted(vc0.tranche_age.dropna().unique()),
                               default=sorted(vc0.tranche_age.dropna().unique()),
                               help="Valeur = primes acquises − sinistres payés, sur toute la période.")
     vc = vc0[vc0.tranche_age.isin(tranches)].sort_values("valeur", ascending=False).reset_index(drop=True)
@@ -374,63 +401,63 @@ elif page == "Technique et clients":
         fv.update_yaxes(tickformat=".0%", title="Part cumulée de la valeur")
         v1, v2 = st.columns([2, 1])
         with v1:
-            graphique(fv, f"10 % des clients font {pct(top10, 0)} de la valeur ; {entier(neg)} clients en détruisent : cibler la fidélisation sur les premiers", 400)
+            graphique(fv, f"{pct(top10, 0)} de la valeur vient de 10 % des clients, alors que {entier(neg)} clients en font perdre : fidéliser en priorité les meilleurs", 400)
         v2.metric("Valeur totale", eur(vc.valeur.sum()), help="Primes acquises − sinistres payés, tous clients de la sélection.")
         v2.metric("Clients à valeur négative", entier(neg), help="Sinistres payés supérieurs aux primes acquises.")
         v2.metric("Perte cumulée de ces clients", eur(vc.loc[vc.valeur < 0, "valeur"].sum()))
 
 # =============================================================== EXPLOITATION
-elif page == "Exploitation":
-    st.title("Exploitation de la chaîne de données")
+elif page == "Suivi de la chaîne":
+    st.title("État de la chaîne de données")
     ex = lire("exploitation")
     ex["horodatage"] = pd.to_datetime(ex["horodatage"])
     ch, rg, ts = (ex[ex.rubrique == r] for r in ("CHARGEMENT", "REGLE", "TEST"))
     echecs = int((~ts.statut.isin({"OK", "PASS"})).sum())
     c = st.columns(4)
-    c[0].metric("Fraîcheur des données", f"{pd.to_datetime(ex.derniere_date_donnee).max():%d/%m/%Y}",
-                help="Date la plus récente présente dans les sources chargées.")
-    c[1].metric("Dernier chargement", f"{ch.horodatage.max():%d/%m/%Y}")
-    c[2].metric("Tests réussis", f"{len(ts) - echecs} / {len(ts)}", help="Tests des couches brute et cœur.")
-    c[3].metric("Règles déclenchées", f"{int((rg.valeur > 0).sum())} / {len(rg)}",
+    c[0].metric("Données à jour au", f"{pd.to_datetime(ex.derniere_date_donnee).max():%d/%m/%Y}",
+                help="Date la plus récente dans les sources importées.")
+    c[1].metric("Dernier import", f"{ch.horodatage.max():%d/%m/%Y}")
+    c[2].metric("Contrôles réussis", f"{len(ts) - echecs} / {len(ts)}", help="Tests des couches brute et cœur.")
+    c[3].metric("Règles activées", f"{int((rg.valeur > 0).sum())} / {len(rg)}",
                 help="Règles de qualité qui ont détecté au moins une ligne anormale.")
     if echecs:
-        st.error("Au moins un test échoue : ne pas diffuser les chiffres avant correction.")
+        st.error("Un contrôle est en échec : les chiffres ne doivent pas être diffusés tant que ce n'est pas corrigé.")
     else:
-        st.success("Tous les tests passent : les chiffres sont diffusables.")
+        st.success("Tous les contrôles sont au vert : les chiffres peuvent être diffusés.")
 
-    st.subheader("Dernier chargement par source")
+    st.subheader("Derniers imports par source")
     st.dataframe(ch[["element", "detail", "valeur", "statut", "horodatage"]].rename(
         columns={"element": "Source", "detail": "Fichiers", "valeur": "Lignes chargées", "statut": "Statut", "horodatage": "Chargé le"}),
         hide_index=True, width="stretch")
 
-    st.subheader("Top 10 des règles avec le plus de lignes signalées ou rejetées")
+    st.subheader("Les 10 règles qui écartent le plus de lignes")
     anom = rg[rg.valeur > 0].nlargest(10, "valeur").sort_values("valeur")
     libelles = anom.element + " · " + anom.detail.str.slice(0, 38)
-    fr = go.Figure(go.Bar(x=anom.valeur, y=libelles, orientation="h", marker_color=BLEU, customdata=anom[["detail", "statut"]].values,
+    fr = go.Figure(go.Bar(x=anom.valeur, y=libelles, orientation="h", marker_color=ORANGE, customdata=anom[["detail", "statut"]].values,
                           hovertemplate="%{y} : %{x:,.0f} lignes<br>%{customdata[0]}<br>Traitement : %{customdata[1]}<extra></extra>"))
     if len(anom):
         top = anom.iloc[-1]
         titre = f"{top.element} concentre le plus de lignes concernées ({entier(top.valeur)}) : traiter cette anomalie à la source en priorité"
     else:
-        titre = "Aucune ligne rejetée"
+        titre = "Aucune ligne écartée"
     graphique(fr, titre, 300 + 26 * len(anom))
 
-    st.subheader("Détail de toutes les règles appliquées")
+    st.subheader("Catalogue des règles de qualité")
     st.dataframe(rg[["element", "detail", "valeur", "statut"]].rename(
         columns={"element": "Règle", "detail": "Description", "valeur": "Lignes signalées ou rejetées", "statut": "Gravité / traitement"}),
         hide_index=True, width="stretch")
 
-    st.subheader("Résultats des tests")
+    st.subheader("Contrôles automatisés")
     st.dataframe(ts[["element", "detail", "statut", "horodatage"]].rename(
         columns={"element": "Test", "detail": "Description", "statut": "Résultat", "horodatage": "Exécuté le"}),
         hide_index=True, width="stretch")
 
-    st.subheader("Délais de gestion des sinistres par garantie")
+    st.subheader("Rapidité de traitement des sinistres")
     dl = lire("delais_sinistres")
     dl = dl[dl["produit"].isin(produits)]
     etapes = {"delai_declaration": "Survenance → déclaration", "delai_premier_reglement": "Déclaration → 1er règlement",
               "delai_cloture": "Déclaration → clôture (dernier règlement)"}
-    etape = st.selectbox("Étape", list(etapes), index=1, format_func=etapes.get)
+    etape = st.selectbox("Phase du dossier", list(etapes), index=1, format_func=etapes.get)
     t = dl.groupby("garantie")[etape].agg(mediane="median", p90=lambda x: x.quantile(0.9), dossiers="count").sort_values("p90")
     fl = go.Figure()
     fl.add_bar(y=t.index.astype(str), x=t.mediane, orientation="h", name="Médiane", marker_color=BLEU,
@@ -443,38 +470,3 @@ elif page == "Exploitation":
              if len(t) else "Délais")
     graphique(fl, titre, 260 + 40 * len(t))
     st.caption("Délai de clôture approché par la date du dernier règlement des dossiers clôturés (aucune date de clôture dans les sources).")
-
-# =============================================================== DÉFINITIONS
-else:
-    st.title("Définitions des indicateurs")
-    st.markdown(f"""
-| Indicateur | Définition |
-|---|---|
-| **Années-police** | Jours de couverture d'un contrat dans l'année ÷ nombre de jours de l'année. Un contrat couvert toute l'année vaut 1. |
-| **Primes acquises** | Prime annuelle × années-police. |
-| **Contrats actifs** | Contrats en vigueur le dernier mois de la période. |
-| **Sinistres retenus** | Dossiers au statut OUVERT ou CLOTURE. Les rejetés et sans suite sont exclus. |
-| **Montant payé** | Somme des règlements des sinistres retenus, rattachés au mois de survenance. |
-| **Fréquence** | Sinistres retenus ÷ années-police. |
-| **Coût moyen** | Montant payé ÷ sinistres retenus. |
-| **Prime moyenne** | Primes acquises ÷ années-police. |
-| **Ratio sinistres/primes** | Montant payé ÷ primes acquises. Alerte au-dessus de {SEUIL:.0%}. Il vaut fréquence × coût moyen ÷ prime moyenne. |
-| **Taux de résiliation** | Résiliations ÷ années-police. |
-| **Marge technique** | Primes acquises − sinistres payés, avant frais de gestion et commissions. |
-| **Décomposition du ratio** | Part de la variation annuelle du ratio due à la fréquence, au coût moyen et à la prime moyenne, en points de ratio. |
-| **Rétention** | Part des contrats d'une cohorte encore en vigueur au 31/12, k années après la souscription. |
-| **Valeur client** | Primes acquises − sinistres payés du client, sur la période. |
-| **Délai de clôture** | Date du dernier règlement − date de déclaration, pour les dossiers clôturés (approximation). |
-
-**Seuil d'alerte de 70 %** : c'est une hypothèse de travail. Les sources ne contiennent ni frais de gestion ni commissions. En assurance dommages, ces frais
-représentent généralement 25 à 30 % des primes : quand les sinistres dépassent 70 % des primes, le résultat technique tombe autour de l'équilibre,
-puis devient négatif. Le portefeuille (56 %) laisse environ 44 points pour couvrir ces frais.
-
-**Mois immatures** : les {MOIS_IMMATURES} derniers mois sont incomplets (sinistres non encore déclarés ni payés). Leur ratio est sous-estimé.
-L'option du menu de gauche permet de les exclure ; décochée, les chiffres sont ceux du dossier.
-
-**Sinistre exceptionnel** : un dossier de plus de 1 M€ (2,5 M€, 22 % du payé total). L'option « hors sinistre exceptionnel » le retire pour lire la tendance sous-jacente.
-
-**Périmètre** : 51 contrats en quarantaine (prime nulle ou date de résiliation incohérente) sont exclus de tous les indicateurs.
-Données arrêtées au {fin_donnees:%d/%m/%Y}.
-""")
